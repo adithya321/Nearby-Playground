@@ -34,12 +34,14 @@ import android.widget.ArrayAdapter;
 import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.ListView;
+import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.common.api.Status;
 import com.google.android.gms.nearby.Nearby;
+import com.google.android.gms.nearby.messages.Distance;
 import com.google.android.gms.nearby.messages.Message;
 import com.google.android.gms.nearby.messages.MessageListener;
 import com.google.android.gms.nearby.messages.Messages;
@@ -79,8 +81,6 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
 
     private static final String TAG = MainActivity.class.getSimpleName();
 
-    private static final int TTL_IN_SECONDS = 3 * 60; // Three minutes.
-
     // Key used in writing to and reading from SharedPreferences.
     private static final String KEY_UUID = "key_uuid";
 
@@ -88,8 +88,13 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
      * Sets the time in seconds for a published message or a subscription to live. Set to three
      * minutes in this sample.
      */
-    private static final Strategy PUB_SUB_STRATEGY = new Strategy.Builder()
-            .setTtlSeconds(TTL_IN_SECONDS).build();
+    private static final Strategy PUB_STRATEGY = new Strategy.Builder()
+            .setTtlSeconds(Strategy.TTL_SECONDS_MAX)
+            .setDistanceType(Strategy.DISTANCE_TYPE_EARSHOT).build();
+
+    private static final Strategy SUB_STRATEGY = new Strategy.Builder()
+            .setTtlSeconds(Strategy.TTL_SECONDS_INFINITE)
+            .setDistanceType(Strategy.DISCOVERY_MODE_BROADCAST).build();
     /**
      * The entry point to Google Play Services.
      */
@@ -147,6 +152,14 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                 // Called when a message is no longer detectable nearby.
                 mNearbyDevicesArrayAdapter.remove(
                         DeviceMessage.fromNearbyMessage(message).getMessageBody());
+            }
+
+            @Override
+            public void onDistanceChanged(Message message, Distance distance) {
+                super.onDistanceChanged(message, distance);
+                String msg = message + " :" + distance;
+                Log.e("onDistanceChanged", msg);
+                Toast.makeText(MainActivity.this, msg, Toast.LENGTH_LONG).show();
             }
         };
 
@@ -262,7 +275,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
         Log.i(TAG, "Subscribing");
         mNearbyDevicesArrayAdapter.clear();
         SubscribeOptions options = new SubscribeOptions.Builder()
-                .setStrategy(PUB_SUB_STRATEGY)
+                .setStrategy(SUB_STRATEGY)
                 .setCallback(new SubscribeCallback() {
                     @Override
                     public void onExpired() {
@@ -298,7 +311,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
     private void publish() {
         Log.i(TAG, "Publishing");
         PublishOptions options = new PublishOptions.Builder()
-                .setStrategy(PUB_SUB_STRATEGY)
+                .setStrategy(PUB_STRATEGY)
                 .setCallback(new PublishCallback() {
                     @Override
                     public void onExpired() {
